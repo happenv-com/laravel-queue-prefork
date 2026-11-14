@@ -1,11 +1,16 @@
 {
     "name": "happenv-com/laravel-queue-prefork",
-    "description": "Run Laravel queue workers as forked children of one booted parent, so the whole pool shares a single OPcache copy of your code.",
+    "description": "Run a pool of Laravel queue workers as forks of one small parent that never loads your app, so every worker shares a single opcache copy of the compiled code.",
     "license": "MIT",
     "keywords": [
-        "happenv",
         "laravel",
-        "laravel-queue-prefork"
+        "queue",
+        "queue-worker",
+        "prefork",
+        "fork",
+        "opcache",
+        "memory",
+        "pcntl"
     ],
     "authors": [
         {
@@ -29,8 +34,10 @@
     },
     "require": {
         "php": "^8.3",
-        "illuminate/contracts": "^12.0 || ^13.0",
-        "spatie/laravel-package-tools": "^1.93"
+        "ext-pcntl": "*",
+        "ext-posix": "*",
+        "illuminate/console": "^12.0 || ^13.0",
+        "illuminate/queue": "^12.0 || ^13.0"
     },
     "require-dev": {
         "driftingly/rector-laravel": "^2.1",
@@ -49,8 +56,7 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "Happenv\\QueuePrefork\\": "src/",
-            "Happenv\\QueuePrefork\\Database\\Factories\\": "database/factories/"
+            "Happenv\\QueuePrefork\\": "src/"
         }
     },
     "autoload-dev": {
@@ -58,6 +64,9 @@
             "Happenv\\QueuePrefork\\Tests\\": "tests/"
         }
     },
+    "bin": [
+        "bin/queue-prefork"
+    ],
     "config": {
         "allow-plugins": {
             "ergebnis/composer-normalize": true,
@@ -69,14 +78,6 @@
     "extra": {
         "branch-alias": {
             "dev-1.x": "1.x-dev"
-        },
-        "laravel": {
-            "aliases": {
-                "QueuePrefork": "Happenv\\QueuePrefork\\Facades\\QueuePrefork"
-            },
-            "providers": [
-                "Happenv\\QueuePrefork\\QueuePreforkServiceProvider"
-            ]
         }
     },
     "scripts": {

@@ -1,0 +1,25 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * The pool parent must never load the application, so this script loads only
+ * the package's own classes, without Composer's autoloader (which would pull
+ * in every package's autoloaded files).
+ */
+foreach (['PoolOptions', 'ArtisanCommand', 'ArtisanRunner', 'Supervisor', 'Launcher'] as $class) {
+    require __DIR__ . '/../src/' . $class . '.php';
+}
+
+/** @var list<string> $arguments */
+$arguments = $_SERVER['argv'];
+
+$result = Happenv\QueuePrefork\Launcher::main($arguments);
+
+if (is_int($result)) {
+    exit($result);
+}
+
+// A forked child: the pool's frames are gone, boot the application as `artisan` would.
+exit(Happenv\QueuePrefork\ArtisanRunner::run($result));

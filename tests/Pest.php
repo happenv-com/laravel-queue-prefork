@@ -2,16 +2,13 @@
 
 declare(strict_types=1);
 
-use Happenv\QueuePrefork\Tests\Fixtures\User;
-use Happenv\QueuePrefork\Tests\TestCase;
+use Happenv\QueuePrefork\Tests\Support\RunningPool;
 
-pest()->extend(TestCase::class)->in('Unit', 'Feature');
-
-function createUser(string $email = 'jane@example.com'): User
+/**
+ * @param  list<string>  $arguments
+ * @param  array<string, string>  $env
+ */
+function startPool(array $arguments, array $env = []): RunningPool
 {
-    return User::query()->create([
-        'name' => 'Jane',
-        'email' => $email,
-        'password' => 'password',
-    ]);
+    return RunningPool::start($arguments, $env);
 }

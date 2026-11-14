@@ -2,18 +2,14 @@
 
 declare(strict_types=1);
 
-use VendorName\Skeleton\Tests\TestCase;
+use Happenv\QueuePrefork\Tests\Fixtures\User;
+use Happenv\QueuePrefork\Tests\TestCase;
 
-// @browser-start
-pest()->extend(TestCase::class)->in('Unit', 'Feature', 'Browser');
-// @browser-end
-// @no-browser-start
 pest()->extend(TestCase::class)->in('Unit', 'Feature');
-// @no-browser-end
 
-function createUser(string $email = 'jane@example.com'): VendorName\Skeleton\Tests\Fixtures\User
+function createUser(string $email = 'jane@example.com'): User
 {
-    return VendorName\Skeleton\Tests\Fixtures\User::query()->create([
+    return User::query()->create([
         'name' => 'Jane',
         'email' => $email,
         'password' => 'password',

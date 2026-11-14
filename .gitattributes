@@ -54,22 +54,3 @@
 /pint.json              export-ignore
 /rector.php             export-ignore
 /composer.lock          export-ignore
-# @npm-start
-
-# Front-end toolchain
-/node_modules           export-ignore
-/.npmrc                 export-ignore
-/.nvmrc                 export-ignore
-/package-lock.json      export-ignore
-/package.json           export-ignore
-# @npm-end
-# @assets-start
-
-# Asset sources: the service provider registers the build output in
-# resources/dist. Drop these two lines if consumers import the sources.
-/.prettierignore        export-ignore
-/.prettierrc            export-ignore
-/bin                    export-ignore
-/resources/css          export-ignore
-/resources/js           export-ignore
-# @assets-end

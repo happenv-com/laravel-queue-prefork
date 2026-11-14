@@ -47,16 +47,6 @@ body:
       placeholder: 13.0.0
     validations:
       required: true
-  # @filament-start
-  - type: input
-    id: filament-version
-    attributes:
-      label: Filament Version
-      description: What version of Filament are you running? Please be as specific as possible
-      placeholder: 5.0.0
-    validations:
-      required: true
-  # @filament-end
   - type: dropdown
     id: operating-systems
     attributes:

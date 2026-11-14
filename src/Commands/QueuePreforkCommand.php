@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace VendorName\Skeleton\Commands;
+namespace Happenv\QueuePrefork\Commands;
 
 use Illuminate\Console\Command;
 
-class SkeletonCommand extends Command
+class QueuePreforkCommand extends Command
 {
-    public $signature = 'skeleton';
+    public $signature = 'laravel-queue-prefork';
 
     public $description = 'My command';
 

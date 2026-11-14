@@ -1,14 +1,11 @@
 {
-    "name": ":vendor_slug/:package_slug",
-    "description": ":package_description",
+    "name": "happenv-com/laravel-queue-prefork",
+    "description": "Run Laravel queue workers as forked children of one booted parent, so the whole pool shares a single OPcache copy of your code.",
     "license": "MIT",
     "keywords": [
-        ":organization",
+        "happenv",
         "laravel",
-        "filamentphp",
-        "filament",
-        "filament-plugin",
-        ":package_slug"
+        "laravel-queue-prefork"
     ],
     "authors": [
         {
@@ -24,17 +21,15 @@
             "role": "Developer"
         }
     ],
-    "homepage": "https://github.com/:github_org/:package_slug",
+    "homepage": "https://github.com/happenv-com/laravel-queue-prefork",
     "support": {
-        "issues": "https://github.com/:github_org/:package_slug/issues",
-        "source": "https://github.com/:github_org/:package_slug",
-        "security": "https://github.com/:github_org/:package_slug/security/policy"
+        "issues": "https://github.com/happenv-com/laravel-queue-prefork/issues",
+        "source": "https://github.com/happenv-com/laravel-queue-prefork",
+        "security": "https://github.com/happenv-com/laravel-queue-prefork/security/policy"
     },
     "require": {
         "php": "^8.3",
-        "filament/filament": "^5.8.3",
-        "filament/forms": "^5.8.3",
-        "filament/tables": "^5.8.3",
+        "illuminate/contracts": "^12.0 || ^13.0",
         "spatie/laravel-package-tools": "^1.93"
     },
     "require-dev": {
@@ -47,7 +42,6 @@
         "pestphp/pest": "^4.0 || ^5.0",
         "pestphp/pest-plugin-arch": "^4.0 || ^5.0",
         "pestphp/pest-plugin-laravel": "^4.0 || ^5.0",
-        "pestphp/pest-plugin-livewire": "^4.0 || ^5.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "rector/rector": "^2.1"
     },
@@ -55,13 +49,13 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "VendorName\\Skeleton\\": "src/",
-            "VendorName\\Skeleton\\Database\\Factories\\": "database/factories/"
+            "Happenv\\QueuePrefork\\": "src/",
+            "Happenv\\QueuePrefork\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "VendorName\\Skeleton\\Tests\\": "tests/"
+            "Happenv\\QueuePrefork\\Tests\\": "tests/"
         }
     },
     "config": {
@@ -78,10 +72,10 @@
         },
         "laravel": {
             "aliases": {
-                "Skeleton": "VendorName\\Skeleton\\Facades\\Skeleton"
+                "QueuePrefork": "Happenv\\QueuePrefork\\Facades\\QueuePrefork"
             },
             "providers": [
-                "VendorName\\Skeleton\\SkeletonServiceProvider"
+                "Happenv\\QueuePrefork\\QueuePreforkServiceProvider"
             ]
         }
     },
@@ -109,7 +103,6 @@
         "rector": "rector process",
         "rector-test": "rector process --dry-run",
         "test": "pest --testsuite=Unit,Feature",
-        "test-browser": "pest --testsuite=Browser",
         "test-coverage": "pest --testsuite=Unit,Feature --coverage"
     },
     "scripts-descriptions": {
@@ -124,7 +117,6 @@
         "rector": "Applies Rector refactorings.",
         "rector-test": "Shows pending Rector refactorings.",
         "test": "Runs the unit and feature tests.",
-        "test-browser": "Runs the browser tests (needs `npx playwright install chromium` once).",
         "test-coverage": "Runs the unit and feature tests with code coverage (needs pcov or Xdebug)."
     }
 }

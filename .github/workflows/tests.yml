@@ -1,32 +1,11 @@
 name: 'Tests'
 
-# @filament-start
-# The Pest suite across the supported PHP / Laravel / Filament range.
-# @filament-end
-# @laravel-start
 # The Pest suite across the supported PHP / Laravel range.
-# @laravel-end
 #
 # Libraries do not commit composer.lock, so every leg resolves its own
 # dependency set with `composer update`. `prefer-lowest` proves the lower
 # bounds in composer.json are real, `prefer-stable` proves the package works
 # with what a fresh install gets today.
-# @browser-start
-#
-# Browser tests run in browser-tests.yml, on one combination only.
-# @browser-end
-# @filament-start
-#
-# The Filament constraint below is composer.json's own, so prefer-lowest proves
-# the declared floor. tests/TestCase.php registers Livewire AFTER Filament, as
-# package discovery does in an app; the other order breaks every Livewire render
-# on Filament before 4.13.3 / 5.8.3 (filamentphp/filament#20515).
-#
-# Supporting another Filament major: add it to `filament` and give it a
-# `filament-constraint` in `include` (e.g. `- filament: '4'` with
-# `filament-constraint: '^4.13'`). Pin Pest the same way when a Filament major
-# needs an older Livewire than the newest Pest plugins allow.
-# @filament-end
 
 on:
   push:
@@ -57,7 +36,7 @@ concurrency:
 
 jobs:
   tests:
-    name: P${{ matrix.php }} - L${{ matrix.laravel }} - F${{ matrix.filament }} - ${{ matrix.stability }}
+    name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }}
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     timeout-minutes: 15
@@ -67,19 +46,12 @@ jobs:
       matrix:
         php: ['8.3', '8.4', '8.5']
         laravel: ['12.*', '13.*']
-        # @filament-start
-        filament: ['5']
-        # @filament-end
         stability: [prefer-lowest, prefer-stable]
         include:
           - laravel: '12.*'
             testbench: '10.*'
           - laravel: '13.*'
             testbench: '11.*'
-          # @filament-start
-          - filament: '5'
-            filament-constraint: '^5.8.3'
-          # @filament-end
         exclude:
           # The lowest dependency set predates PHP 8.5 and only reports its
           # deprecations there.
@@ -108,18 +80,9 @@ jobs:
         env:
           LARAVEL: ${{ matrix.laravel }}
           TESTBENCH: ${{ matrix.testbench }}
-          # @filament-start
-          FILAMENT: ${{ matrix.filament-constraint }}
-          # @filament-end
           STABILITY: ${{ matrix.stability }}
-          # @private-start
-          COMPOSER_AUTH: '{"http-basic": {"packeton.happenv.com": {"username": "token", "password": "${{ secrets.COMPOSER_PACKETON_TOKEN }}"}}}'
-          # @private-end
         run: |
           composer require "laravel/framework:${LARAVEL}" "orchestra/testbench:${TESTBENCH}" --no-interaction --no-update
-          # @filament-start
-          composer require "filament/filament:${FILAMENT}" --no-interaction --no-update
-          # @filament-end
           composer update "--${STABILITY}" --prefer-dist --no-interaction --no-progress --with-all-dependencies
 
       - name: List installed dependencies

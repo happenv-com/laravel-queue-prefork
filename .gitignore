@@ -11,4 +11,4 @@ coverage
 phpstan.neon
 phpunit.xml
 testbench.yaml
-vendor
+/vendor

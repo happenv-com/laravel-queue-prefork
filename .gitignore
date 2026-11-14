@@ -1,0 +1,20 @@
+**/.DS_Store
+.idea
+.phpunit.cache
+.phpunit.result.cache
+.serena
+.superpowers
+.vscode
+build
+composer.lock
+coverage
+# @npm-start
+node_modules
+# @npm-end
+phpstan.neon
+phpunit.xml
+testbench.yaml
+vendor
+# @browser-start
+tests/Browser/Screenshots
+# @browser-end

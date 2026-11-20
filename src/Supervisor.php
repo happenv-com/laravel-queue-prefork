@@ -27,11 +27,16 @@ final class Supervisor
     public const float CRASH_WINDOW_SECONDS = 60.0;
 
     /**
-     * Signals passed on to every worker. TERM, INT and QUIT also stop the pool.
+     * Signals passed on to every worker that also stop the pool.
      */
     private const array STOP_SIGNALS = [SIGTERM, SIGINT, SIGQUIT];
 
-    private const array FORWARDED_SIGNALS = [SIGUSR2, SIGCONT];
+    /**
+     * Pause and continue. Until its first loop a worker has no handler for
+     * them, and USR2's default action kills it, so the pool remembers the
+     * latest one and hands it to each worker when that worker reports ready.
+     */
+    private const array PAUSE_SIGNALS = [SIGUSR2, SIGCONT];
 
     /**
      * A worker killed by one of these was stopped from outside, not crashed.
@@ -47,6 +52,8 @@ final class Supervisor
     private ?int $warmupPid = null;
 
     private bool $stopping = false;
+
+    private bool $paused = false;
 
     private int $exitCode = 0;
 
@@ -155,51 +162,72 @@ final class Supervisor
     private function superviseUntilStopped(): int | ArtisanCommand
     {
         while ($this->workers !== []) {
-            $status = 0;
-            $pid = pcntl_wait($status);
-
-            if ($pid === -1) {
-                if (pcntl_get_last_error() === PCNTL_EINTR) {
-                    continue;
-                }
-
-                // ECHILD: nothing left to wait for, whatever the bookkeeping says.
-                break;
-            }
-
-            if (! isset($this->workers[$pid])) {
-                // An orphan this process adopted as PID 1; reaping it is all it needs.
-                continue;
-            }
-
+            $this->waitForActivity();
             $this->readReadyReports();
-            $wasReady = isset($this->ready[$pid]);
-            unset($this->workers[$pid], $this->ready[$pid]);
 
-            if ($this->stopping) {
-                continue;
+            while (($pid = pcntl_waitpid(-1, $status, WNOHANG)) > 0) {
+                $child = $this->handleExit($pid, $status);
+
+                if ($child instanceof ArtisanCommand) {
+                    return $child;
+                }
             }
 
-            $this->log(sprintf('worker %d exited (%s)%s; starting a new one', $pid, $this->describeStatus($status), $wasReady ? '' : ' before its first loop'));
-
-            if (! $wasReady && $this->tripsCrashBreaker($status)) {
-                $this->log(sprintf('%d workers died before their first loop within %.0fs; stopping the pool', self::CRASH_LIMIT, self::CRASH_WINDOW_SECONDS));
-                $this->exitCode = 1;
-                $this->stop(SIGTERM);
-
-                continue;
-            }
-
-            $child = $this->spawnWorker();
-
-            if ($child instanceof ArtisanCommand) {
-                return $child;
+            if ($pid === -1 && pcntl_get_last_error() === PCNTL_ECHILD) {
+                // Nothing left to wait for, whatever the bookkeeping says.
+                break;
             }
         }
 
         $this->log('stopped');
 
         return $this->exitCode;
+    }
+
+    /**
+     * Sleeps until a worker reports its first loop, a signal arrives (SIGCHLD
+     * included) or a second passes.
+     */
+    private function waitForActivity(): void
+    {
+        if (! is_resource($this->readyReader)) {
+            usleep(100_000);
+
+            return;
+        }
+
+        $read = [$this->readyReader];
+        $write = null;
+        $except = null;
+        @stream_select($read, $write, $except, 1);
+    }
+
+    private function handleExit(int $pid, int $status): ?ArtisanCommand
+    {
+        if (! isset($this->workers[$pid])) {
+            // An orphan this process adopted as PID 1; reaping it is all it needs.
+            return null;
+        }
+
+        $this->readReadyReports();
+        $wasReady = isset($this->ready[$pid]);
+        unset($this->workers[$pid], $this->ready[$pid]);
+
+        if ($this->stopping) {
+            return null;
+        }
+
+        $this->log(sprintf('worker %d exited (%s)%s; starting a new one', $pid, $this->describeStatus($status), $wasReady ? '' : ' before its first loop'));
+
+        if (! $wasReady && $this->tripsCrashBreaker($status)) {
+            $this->log(sprintf('%d workers died before their first loop within %.0fs; stopping the pool', self::CRASH_LIMIT, self::CRASH_WINDOW_SECONDS));
+            $this->exitCode = 1;
+            $this->stop(SIGTERM);
+
+            return null;
+        }
+
+        return $this->spawnWorker();
     }
 
     private function tripsCrashBreaker(int $status): bool
@@ -238,7 +266,17 @@ final class Supervisor
         }
 
         while (($line = fgets($this->readyReader)) !== false) {
-            $this->ready[(int) trim($line)] = true;
+            $pid = (int) trim($line);
+
+            if (! isset($this->workers[$pid]) || isset($this->ready[$pid])) {
+                continue;
+            }
+
+            $this->ready[$pid] = true;
+
+            if ($this->paused && ! $this->stopping) {
+                posix_kill($pid, SIGUSR2);
+            }
         }
     }
 
@@ -252,9 +290,12 @@ final class Supervisor
             pcntl_signal($signal, $this->stop(...), false);
         }
 
-        foreach (self::FORWARDED_SIGNALS as $signal) {
-            pcntl_signal($signal, $this->forward(...), false);
+        foreach (self::PAUSE_SIGNALS as $signal) {
+            pcntl_signal($signal, $this->pauseOrContinue(...), false);
         }
+
+        // Only so that a worker's exit interrupts the wait at once.
+        pcntl_signal(SIGCHLD, static function (): void {}, false);
     }
 
     private function stop(int $signal): void
@@ -264,12 +305,22 @@ final class Supervisor
         }
 
         $this->stopping = true;
-        $this->forward($signal);
+
+        foreach (array_keys($this->workers) as $pid) {
+            // Before its first loop a worker has no handlers: QUIT would dump core.
+            posix_kill($pid, isset($this->ready[$pid]) ? $signal : SIGTERM);
+        }
+
+        if ($this->warmupPid !== null) {
+            posix_kill($this->warmupPid, SIGTERM);
+        }
     }
 
-    private function forward(int $signal): void
+    private function pauseOrContinue(int $signal): void
     {
-        foreach ([...array_keys($this->workers), ...($this->warmupPid === null ? [] : [$this->warmupPid])] as $pid) {
+        $this->paused = $signal === SIGUSR2;
+
+        foreach (array_keys($this->ready) as $pid) {
             posix_kill($pid, $signal);
         }
     }
@@ -291,7 +342,7 @@ final class Supervisor
      */
     private function becomeChild(ArtisanCommand $command): ArtisanCommand
     {
-        foreach ([...self::STOP_SIGNALS, ...self::FORWARDED_SIGNALS] as $signal) {
+        foreach ([...self::STOP_SIGNALS, ...self::PAUSE_SIGNALS, SIGCHLD] as $signal) {
             pcntl_signal($signal, SIG_DFL);
         }
 

@@ -83,6 +83,46 @@ it('passes USR2 and CONT on to every worker', function (): void {
         ->and(array_count_values(array_column($pool->events('signal'), 'signal')))->toBe(['USR2' => 2, 'CONT' => 2]);
 });
 
+it('holds a pause sent while a worker boots and applies it at the worker\'s first loop', function (): void {
+    $pool = startPool(['--workers=1', '--no-warmup'], ['FIXTURE_MODE' => 'slow-boot']);
+    $pool->waitUntil(fn (RunningPool $pool): bool => count($pool->workerRuns()) === 1);
+
+    $pool->signal(SIGUSR2);
+
+    expect($pool->waitUntil(fn (RunningPool $pool): bool => count($pool->events('signal')) === 1))->toBeTrue()
+        ->and($pool->events('signal')[0]['signal'])->toBe('USR2')
+        ->and($pool->workerRuns())->toHaveCount(1)
+        ->and($pool->stderr())->not->toContain('exited');
+});
+
+it('starts a replacement worker paused while the pool is paused, and resumes it on CONT', function (): void {
+    $pool = startPool(['--workers=1', '--no-warmup'], ['FIXTURE_MODE' => 'exit-after-1s']);
+    $pool->waitUntil(fn (RunningPool $pool): bool => count($pool->workerRuns()) === 1);
+    usleep(200_000);
+
+    $pool->signal(SIGUSR2);
+
+    expect($pool->waitUntil(fn (RunningPool $pool): bool => count($pool->workerRuns()) >= 2))->toBeTrue();
+
+    $replacement = $pool->workerRuns()[1]['pid'];
+
+    expect($pool->waitUntil(fn (RunningPool $pool): bool => in_array(['USR2', $replacement], array_map(fn (array $signal): array => [$signal['signal'], $signal['pid']], $pool->events('signal')), true)))->toBeTrue();
+
+    $pool->signal(SIGCONT);
+
+    expect($pool->waitUntil(fn (RunningPool $pool): bool => count(array_filter($pool->events('signal'), fn (array $signal): bool => $signal['signal'] === 'CONT')) >= 1))->toBeTrue();
+});
+
+it('never sends a pause to the warm-up, which has no handler for it', function (): void {
+    $pool = startPool(['--workers=1', '--warmup-timeout=5'], ['FIXTURE_MODE' => 'warmup-hangs']);
+    usleep(300_000);
+
+    $pool->signal(SIGUSR2);
+    usleep(300_000);
+
+    expect($pool->stderr())->not->toContain('warm-up "list --quiet" failed (killed by signal ' . SIGUSR2 . ')');
+});
+
 it('stops with exit code 1 when workers keep dying before their first loop', function (): void {
     $pool = startPool(['--workers=2'], ['FIXTURE_MODE' => 'crash']);
 

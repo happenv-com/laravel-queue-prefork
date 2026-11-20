@@ -70,7 +70,7 @@ final class FakeApplication
     {
         if ($this->mode === 'slow-boot') {
             // Booting: Laravel's worker has not installed its signal handlers yet.
-            usleep(1_500_000);
+            usleep(500_000);
         }
 
         pcntl_async_signals(true);

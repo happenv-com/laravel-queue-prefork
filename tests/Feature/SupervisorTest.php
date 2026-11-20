@@ -98,7 +98,6 @@ it('holds a pause sent while a worker boots and applies it at the worker\'s firs
 it('starts a replacement worker paused while the pool is paused, and resumes it on CONT', function (): void {
     $pool = startPool(['--workers=1', '--no-warmup'], ['FIXTURE_MODE' => 'exit-after-1s']);
     $pool->waitUntil(fn (RunningPool $pool): bool => count($pool->workerRuns()) === 1);
-    usleep(200_000);
 
     $pool->signal(SIGUSR2);
 

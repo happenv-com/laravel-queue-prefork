@@ -186,7 +186,8 @@ final class Supervisor
 
     /**
      * Sleeps until a worker reports its first loop, a signal arrives (SIGCHLD
-     * included) or a second passes.
+     * included) or the timeout passes: a second while the ready channel is
+     * open, a tenth of a second without it.
      */
     private function waitForActivity(): void
     {
@@ -199,7 +200,25 @@ final class Supervisor
         $read = [$this->readyReader];
         $write = null;
         $except = null;
-        @stream_select($read, $write, $except, 1);
+        $error = null;
+
+        // A signal interrupting the wait is expected and ends it early; any other failure is logged.
+        set_error_handler(static function (int $level, string $message) use (&$error): bool {
+            $error = $message;
+
+            return true;
+        });
+
+        try {
+            $result = stream_select($read, $write, $except, 1);
+        } finally {
+            restore_error_handler();
+        }
+
+        if ($result === false && $error !== null && ! str_contains($error, 'Interrupted system call')) {
+            $this->log('waiting for workers failed: ' . $error);
+            usleep(100_000);
+        }
     }
 
     private function handleExit(int $pid, int $status): ?ArtisanCommand
@@ -256,6 +275,7 @@ final class Supervisor
         }
 
         [$this->readyReader, $this->readyWriter] = $pair;
+        // Non-blocking: reading the reports never waits, whether or not the select saw data.
         stream_set_blocking($this->readyReader, false);
     }
 
@@ -307,8 +327,8 @@ final class Supervisor
         $this->stopping = true;
 
         foreach (array_keys($this->workers) as $pid) {
-            // Before its first loop a worker has no handlers: QUIT would dump core.
-            posix_kill($pid, isset($this->ready[$pid]) ? $signal : SIGTERM);
+            // Before its first loop a worker has no handlers, and QUIT's default action dumps core.
+            posix_kill($pid, $signal === SIGQUIT && ! isset($this->ready[$pid]) ? SIGTERM : $signal);
         }
 
         if ($this->warmupPid !== null) {

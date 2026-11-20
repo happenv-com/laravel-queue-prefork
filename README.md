@@ -260,7 +260,7 @@ Read this before you switch a production pool. Most of these points also apply t
 - **The parent is the pool's single point of failure.** If it is killed with SIGKILL or by the OOM killer, the workers notice on their next loop, finish their current job and stop. The process manager must then restart the pool. In a container where the pool is PID 1, the container ends at once.
 - **Signals:**
   - TERM, INT and QUIT stop the pool: they are forwarded to every worker, and the parent waits for their jobs;
-  - USR2 (pause) and CONT (resume) are forwarded;
+  - USR2 (pause) and CONT (resume) are forwarded to every worker that has reached its first loop. The pool remembers the latest one, and a worker still booting, or started later (a replacement after `--max-time`, say), gets it at its first loop. Until then it has no handler, and USR2 would kill it. A worker that is still booting gets TERM instead of QUIT, whose default action dumps core;
   - other signals keep their default effect on the parent. HUP, for one, ends it, and the workers then stop as orphans after their job. Under `nohup`, an ignored HUP stays ignored.
 - **Workers are replaced at once.** The parent replaces a worker whatever the reason it exited: `--max-time`, `--max-jobs`, `--memory` (exit code 12), a `--timeout` kill, a crash or `queue:restart`.
 - **The crash breaker:** when 5 workers die before their first loop within 60 seconds, the pool stops with exit code 1. It assumes the app cannot boot (a fatal error in a service provider, a missing extension). A worker that dies in a job after its first loop is never counted.

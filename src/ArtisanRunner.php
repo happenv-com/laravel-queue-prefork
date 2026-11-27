@@ -30,6 +30,11 @@ final class ArtisanRunner
 
         chdir($command->basePath);
 
+        if ($command->isWorker()) {
+            // Workers share the pool's stdout: keep each line of their output whole.
+            LineBufferFilter::attachTo(STDOUT);
+        }
+
         if (! defined('LARAVEL_START')) {
             define('LARAVEL_START', microtime(true));
         }

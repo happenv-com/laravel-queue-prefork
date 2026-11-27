@@ -17,7 +17,7 @@ final class RunningPool
     /**
      * @param  resource  $process
      */
-    private function __construct(private $process, public readonly int $pid, private readonly string $log, private readonly string $stderr) {}
+    private function __construct(private $process, public readonly int $pid, private readonly string $log, private readonly string $stderr, private readonly string $stdout) {}
 
     /**
      * @param  list<string>  $arguments
@@ -29,16 +29,17 @@ final class RunningPool
         mkdir($directory);
         $log = $directory . '/events.log';
         $stderr = $directory . '/stderr.log';
+        $stdout = $directory . '/stdout.log';
         touch($log);
 
         $command = [PHP_BINARY, dirname(__DIR__, 2) . '/bin/queue-prefork', '--base-path=' . dirname(__DIR__) . '/Fixtures/app', ...$arguments];
-        $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', $stderr, 'w']], $pipes, null, [...getenv(), 'FIXTURE_LOG' => $log, ...$env]);
+        $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['file', $stdout, 'w'], 2 => ['file', $stderr, 'w']], $pipes, null, [...getenv(), 'FIXTURE_LOG' => $log, ...$env]);
 
         if (! is_resource($process)) {
             throw new RuntimeException('Could not start the pool.');
         }
 
-        return new self($process, (int) proc_get_status($process)['pid'], $log, $stderr);
+        return new self($process, (int) proc_get_status($process)['pid'], $log, $stderr, $stdout);
     }
 
     /**
@@ -63,6 +64,11 @@ final class RunningPool
     public function stderr(): string
     {
         return (string) file_get_contents($this->stderr);
+    }
+
+    public function stdout(): string
+    {
+        return (string) file_get_contents($this->stdout);
     }
 
     public function waitUntil(callable $condition, float $timeout = 10.0): bool
@@ -123,7 +129,8 @@ final class RunningPool
 
     public function __destruct()
     {
-        foreach ($this->workerRuns() as $run) {
+        // Every child the pool forked, the warm-up included: a test may kill the pool before it reaps them.
+        foreach ($this->events('run') as $run) {
             if (is_int($run['pid'])) {
                 posix_kill($run['pid'], SIGKILL);
             }

@@ -34,6 +34,7 @@ That one process replaces eight `php artisan queue:work redis --queue=high,defau
 - **Workers ready in 0.2 s instead of 1.1–1.5 s** after `--max-time`, `--max-jobs`, `--memory`, a crash or `queue:restart`. A new worker finds the code already compiled.
 - **The same throughput and the same `queue:work`.** All its options, signals, `queue:restart`, `queue:pause` and maintenance mode behave as in stock.
 - **No FFI, no sockets between unrelated processes, no stubs.** The parent forks its own children, and they inherit its stdout and stderr.
+- **Readable logs.** Laravel writes each job line in several pieces; the workers hold their stdout until the end of a line, so lines from different workers never cut into each other. In the benchmark app, 4 workers on 2,000 jobs cut 1,695 of 4,004 lines without it, and none with it.
 - **Safe failure modes:**
   - workers that keep dying before their first loop stop the pool with exit code 1, so your process manager restarts it with its own backoff;
   - workers left without their parent stop after their current job.
@@ -265,7 +266,12 @@ Read this before you switch a production pool. Most of these points also apply t
 - **Workers are replaced at once.** The parent replaces a worker whatever the reason it exited: `--max-time`, `--max-jobs`, `--memory` (exit code 12), a `--timeout` kill, a crash or `queue:restart`.
 - **The crash breaker:** when 5 workers die before their first loop within 60 seconds, the pool stops with exit code 1. It assumes the app cannot boot (a fatal error in a service provider, a missing extension). A worker that dies in a job after its first loop is never counted.
 - **Workers start and recycle together.** With `--max-time`, all workers of a pool reach it at the same moment and are replaced together, which takes about 0.2 s of capacity.
-- **Output is shared.** Workers write to the pool's stdout and stderr. Lines from different workers can interleave, and there is no per-worker log file. Send what matters through Laravel's log channels, or run the workers with `--quiet`.
+- **Output is shared, one line at a time.** Workers write to the pool's stdout and stderr, and there is no per-worker log file.
+  - **Stdout is line-buffered.** Each worker holds its stdout until a newline, then writes whole lines, at most 4 KB per write, which a pipe keeps in one piece. A line longer than that is written in parts. A line without a newline appears once the next newline comes, or when the worker exits.
+  - **What bypasses the buffer:** output that does not go through PHP's `STDOUT` stream, such as `echo`, `print`, `dump()` without a console and subprocesses writing to the inherited descriptor, is not held, so it can land in the middle of another worker's line.
+  - **Stderr is not buffered,** so a fatal error (memory or time limit) is still reported in full. Lines on stderr from different workers can still interleave.
+  - **A worker killed with SIGKILL loses a line it had not finished.**
+  - A process that a job forks with `pcntl_fork()` does not repeat the half line its worker was holding.
 - **`--once` and `--stop-when-empty` are refused,** because the pool would restart such a worker immediately.
 
 ### Opcache

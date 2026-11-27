@@ -84,6 +84,19 @@ final class FakeApplication
             });
         }
 
+        if ($this->mode === 'chatty') {
+            // Laravel's console writes a job line in pieces; so does this worker.
+            for ($line = 1; $line <= 200; $line++) {
+                fwrite(STDOUT, '  ' . getmypid() . " job {$line}");
+                usleep(100);
+                fwrite(STDOUT, ' ..........');
+                usleep(100);
+                fwrite(STDOUT, " DONE\n");
+            }
+
+            $this->record('chatted');
+        }
+
         $startedAt = microtime(true);
 
         while (! $this->shouldQuit) {

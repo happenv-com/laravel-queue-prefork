@@ -8,7 +8,7 @@ declare(strict_types=1);
  * the package's own classes, without Composer's autoloader (which would pull
  * in every package's autoloaded files).
  */
-foreach (['PoolOptions', 'ArtisanCommand', 'ArtisanRunner', 'Supervisor', 'Launcher'] as $class) {
+foreach (['PoolOptions', 'ArtisanCommand', 'LineBufferFilter', 'ArtisanRunner', 'Supervisor', 'Launcher'] as $class) {
     require __DIR__ . '/../src/' . $class . '.php';
 }
 

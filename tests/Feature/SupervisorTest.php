@@ -71,6 +71,17 @@ it('stops cleanly when the signal also reaches the workers directly, as a proces
         ->and($pool->events('stopped'))->toHaveCount(2);
 });
 
+it('keeps each line of the workers\' shared stdout whole', function (): void {
+    $pool = startPool(['--workers=4', '--no-warmup'], ['FIXTURE_MODE' => 'chatty']);
+
+    expect($pool->waitUntil(fn (RunningPool $pool): bool => count($pool->events('chatted')) === 4))->toBeTrue();
+
+    $lines = explode("\n", rtrim($pool->stdout(), "\n"));
+
+    expect($lines)->toHaveCount(800)
+        ->and(array_filter($lines, static fn (string $line): bool => preg_match('/^  \d+ job \d+ \.{10} DONE$/', $line) !== 1))->toBe([]);
+});
+
 it('passes USR2 and CONT on to every worker', function (): void {
     $pool = startPool(['--workers=2']);
     $pool->waitUntil(fn (RunningPool $pool): bool => count($pool->workerRuns()) === 2);

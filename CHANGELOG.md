@@ -2,6 +2,18 @@
 
 All notable changes to `laravel-queue-prefork` are documented in this file. Each section is written automatically from the GitHub release notes when a release is published — do not edit it by hand.
 
+## v1.0.2 - 2026-11-27
+
+<!-- Release notes generated using configuration in .github/release.yml at 1.x -->
+### What's Changed
+
+#### Other
+
+* chore(deps): bump trufflesecurity/trufflehog from 3.99.8 to 3.99.9 in the github-actions group by @dependabot[bot] in https://github.com/happenv-com/laravel-queue-prefork/pull/5
+* fix: workers write whole lines to the pool's shared stdout by @webard in https://github.com/happenv-com/laravel-queue-prefork/pull/6
+
+**Full Changelog**: https://github.com/happenv-com/laravel-queue-prefork/compare/v1.0.1...v1.0.2
+
 ## v1.0.1 - 2026-11-20
 
 <!-- Release notes generated using configuration in .github/release.yml at 1.x -->
